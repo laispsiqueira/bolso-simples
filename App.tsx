@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navbar } from './components/Navbar';
 import { LoginScreen } from './components/LoginScreen';
 import { FileUpload } from './components/FileUpload';
@@ -7,17 +7,12 @@ import { Dashboard } from './components/Dashboard';
 import { Forecast } from './components/Forecast';
 import { AdminPanel } from './components/AdminPanel';
 import { Settings } from './components/Settings';
-import { AppState, Transaction, User, UploadedFile, CategoryRule } from './types';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { AppState, Transaction, User, UploadedFile } from './types';
 import { extractDataFromPDF } from './services/geminiService';
-import { transformData, createDefaultRules } from './services/eltService';
 import { fileToBase64, downloadCSV, downloadBase64File } from './utils/fileHelpers';
-import { 
-  saveUserData, loadUserData, 
-  saveRawData, loadRawData,
-  saveUserFiles, loadUserFiles, 
-  saveUserRules, loadUserRules
-} from './utils/storage';
 import { ArrowLeft } from 'lucide-react';
+import { useAppStore } from './store/useAppStore';
 
 // Demo Scenario Data matching the screenshot requirements
 const DEMO_SCENARIO = [
@@ -60,107 +55,11 @@ const TEST_USERS: User[] = [
 ];
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [originalAdminUser, setOriginalAdminUser] = useState<User | null>(null);
-  
-  const [activeTab, setActiveTab] = useState<AppState>(AppState.UPLOAD);
-  
-  // State for View Layer (Transformed Data)
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  
-  // State for ELT Layers
-  const [rawTransactions, setRawTransactions] = useState<Transaction[]>([]);
-  const [categoryRules, setCategoryRules] = useState<CategoryRule[]>([]);
-  
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const store = useAppStore();
 
-  // --- INITIALIZATION ---
-  useEffect(() => {
-    if (currentUser) {
-      const targetUser = currentUser.role === 'guest' ? 'Brenno' : currentUser.name;
-      
-      // Load ELT components
-      const loadedRaw = loadRawData(targetUser);
-      const loadedFiles = loadUserFiles(targetUser);
-      let loadedRules = loadUserRules(targetUser);
-      
-      // Initialize default rules if empty
-      if (loadedRules.length === 0) {
-        loadedRules = createDefaultRules();
-        if (currentUser.role !== 'guest') saveUserRules(targetUser, loadedRules);
-      }
-
-      setRawTransactions(loadedRaw);
-      setUploadedFiles(loadedFiles);
-      setCategoryRules(loadedRules);
-      
-      // Perform Transform (Raw + Rules -> View)
-      const transformed = transformData(loadedRaw, loadedRules);
-      setTransactions(transformed);
-    }
-  }, [currentUser]);
-
-  // --- ELT PIPELINE HELPERS ---
-
-  // Called when Rules change or New File added
-  const runEltPipeline = (raw: Transaction[], rules: CategoryRule[], files: UploadedFile[]) => {
-    // 1. Transform
-    const transformed = transformData(raw, rules);
-    
-    // 2. Update State
-    setRawTransactions(raw);
-    setCategoryRules(rules);
-    setUploadedFiles(files);
-    setTransactions(transformed);
-
-    // 3. Persist (Load step for DB)
-    if (currentUser && currentUser.role !== 'guest') {
-      saveRawData(currentUser.name, raw);
-      saveUserRules(currentUser.name, rules);
-      saveUserFiles(currentUser.name, files);
-      saveUserData(currentUser.name, transformed); // Cache view layer
-    }
-  };
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    setOriginalAdminUser(null);
-    setActiveTab(AppState.UPLOAD);
-    setError(null);
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setOriginalAdminUser(null);
-    setTransactions([]);
-    setRawTransactions([]);
-    setUploadedFiles([]);
-    setCategoryRules([]);
-  };
-
-  const handleAdminImpersonation = (targetUser: User) => {
-    if (currentUser?.role === 'admin') {
-      setOriginalAdminUser(currentUser);
-      setCurrentUser(targetUser);
-      setActiveTab(AppState.UPLOAD);
-    }
-  };
-
-  const handleStopImpersonation = () => {
-    if (originalAdminUser) {
-      setCurrentUser(originalAdminUser);
-      setOriginalAdminUser(null);
-      setActiveTab(AppState.ADMIN);
-    }
-  };
-
-  // --- EXTRACT STEP ---
   const handleFileSelect = async (file: File) => {
-    if (!currentUser) return;
-    setIsLoading(true);
-    setError(null);
+    store.setLoading(true);
+    store.setError(null);
 
     const fileId = `file-${Date.now()}`;
 
@@ -178,26 +77,20 @@ export default function App() {
         mimeType: file.type
       };
       
-      const updatedFiles = [...uploadedFiles, newFileObj];
-      const updatedRaw = [...rawTransactions, ...newRawData];
-      
-      runEltPipeline(updatedRaw, categoryRules, updatedFiles);
+      store.addFilesAndData([newFileObj], newRawData);
 
-      if (currentUser.role !== 'free') {
-        setActiveTab(AppState.DASHBOARD);
+      if (store.currentUser?.role !== 'free') {
+        store.navigate(AppState.DASHBOARD);
       }
     } catch (err: any) {
-      setError(err.message || "Erro desconhecido ao processar arquivo.");
+      store.setError(err.message || "Erro desconhecido ao processar arquivo.");
     } finally {
-      setIsLoading(false);
+      store.setLoading(false);
     }
   };
 
-  // Special handler for loading the multi-file demo
   const handleLoadDemo = () => {
-    if (!currentUser) return;
-    setIsLoading(true);
-    
+    store.setLoading(true);
     try {
       const newFiles: UploadedFile[] = [];
       let newRawData: Transaction[] = [];
@@ -208,44 +101,27 @@ export default function App() {
           name: demo.name,
           uploadDate: new Date().toISOString(),
           bankName: demo.bankName
-          // Demo files do not have originalContent
         });
-        
-        // Add fileId to transactions
         const fileTrans = demo.transactions.map(t => ({ ...t, fileId: demo.fileId }));
         newRawData = [...newRawData, ...fileTrans];
       });
 
-      const updatedFiles = [...uploadedFiles, ...newFiles];
-      const updatedRaw = [...rawTransactions, ...newRawData];
-
-      runEltPipeline(updatedRaw, categoryRules, updatedFiles);
+      store.addFilesAndData(newFiles, newRawData);
       
-      if (currentUser.role !== 'free') {
-        setActiveTab(AppState.DASHBOARD);
+      if (store.currentUser?.role !== 'free') {
+        store.navigate(AppState.DASHBOARD);
       }
-
     } catch (err) {
       console.error(err);
-      setError("Erro ao carregar demonstração.");
+      store.setError("Erro ao carregar demonstração.");
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteFile = (fileId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este arquivo e todas as suas transações?')) {
-      const updatedFiles = uploadedFiles.filter(f => f.id !== fileId);
-      const updatedRaw = rawTransactions.filter(t => t.fileId !== fileId);
-      
-      // Re-run pipeline to ensure aggregates are correct without this file
-      runEltPipeline(updatedRaw, categoryRules, updatedFiles);
+      store.setLoading(false);
     }
   };
 
   // Allow downloading processed data for a single file (CSV)
   const handleDownloadCSV = (fileId: string) => {
-    const fileTransactions = transactions.filter(t => t.fileId === fileId);
+    const fileTransactions = store.transactions.filter(t => t.fileId === fileId);
     if (fileTransactions.length > 0) {
       downloadCSV(fileTransactions);
     } else {
@@ -255,7 +131,7 @@ export default function App() {
 
   // Allow downloading original file (PDF/Content)
   const handleDownloadOriginal = (fileId: string) => {
-    const file = uploadedFiles.find(f => f.id === fileId);
+    const file = store.uploadedFiles.find(f => f.id === fileId);
     if (file && file.originalContent) {
       downloadBase64File(file.originalContent, file.name, file.mimeType || 'application/pdf');
     } else {
@@ -263,149 +139,141 @@ export default function App() {
     }
   };
 
-  // When user edits a transaction manually in the table
-  const handleUpdateTransaction = (id: string, updates: Partial<Transaction>) => {
-    const updatedRaw = rawTransactions.map(t => t.id === id ? { ...t, ...updates } : t);
-    runEltPipeline(updatedRaw, categoryRules, uploadedFiles);
-  };
-
-  const handleSaveRules = (newRules: CategoryRule[]) => {
-    runEltPipeline(rawTransactions, newRules, uploadedFiles);
-  };
-
-  if (!currentUser) {
-    return <LoginScreen availableUsers={TEST_USERS} onLogin={handleLogin} />;
+  if (!store.currentUser) {
+    return <LoginScreen availableUsers={TEST_USERS} onLogin={store.login} />;
   }
 
-  const isReadOnly = currentUser.role === 'guest';
+  const isReadOnly = store.currentUser.role === 'guest';
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 flex flex-col">
-      
-      {/* Impersonation Banner */}
-      {originalAdminUser && (
-        <div className="bg-indigo-600 text-white px-4 py-2 text-sm flex justify-between items-center shadow-md relative z-[60]">
-           <div className="flex items-center gap-2">
-             <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-semibold">Modo Admin</span>
-             <span>Você está acessando a conta de <strong>{currentUser.name}</strong></span>
-           </div>
-           <button 
-             onClick={handleStopImpersonation}
-             className="flex items-center gap-1 bg-white text-indigo-600 px-3 py-1 rounded-md text-xs font-bold hover:bg-indigo-50 transition-colors"
-           >
-             <ArrowLeft className="w-3 h-3" />
-             Voltar ao Painel
-           </button>
-        </div>
-      )}
-
-      <Navbar 
-        activeTab={activeTab} 
-        onNavigate={setActiveTab} 
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
-
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-in fade-in duration-700">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 flex flex-col">
         
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center text-red-800 shadow-sm">
-             <span className="mr-2">⚠️</span> {error}
-          </div>
-        )}
-
-        {/* --- UPLOAD VIEW --- */}
-        {activeTab === AppState.UPLOAD && (
-          <div className="space-y-10">
-            <div className="text-center max-w-2xl mx-auto pt-8">
-              <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl mb-4">
-                Organize suas finanças com <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Inteligência Artificial</span>
-              </h1>
-              <p className="text-lg text-slate-500 leading-relaxed">
-                Olá, <span className="font-semibold text-slate-900">{currentUser.name}</span>! Gerencie seus arquivos abaixo.
-              </p>
-            </div>
-
-            <FileUpload 
-              onFileSelect={handleFileSelect}
-              onLoadDemo={handleLoadDemo}
-              isLoading={isLoading} 
-              uploadedFiles={uploadedFiles}
-              onDeleteFile={handleDeleteFile}
-              onDownloadCSV={handleDownloadCSV}
-              onDownloadOriginal={handleDownloadOriginal}
-              isReadOnly={isReadOnly}
-            />
-            
-            <div className="pt-4 opacity-75">
-               <TransactionTable 
-                  transactions={transactions.slice(0, 5)} 
-                  onDownload={() => downloadCSV(transactions)} 
-                  onUpdateTransaction={handleUpdateTransaction}
-                  isReadOnly={isReadOnly}
-               />
-               {transactions.length > 5 && <p className="text-center text-xs text-slate-400 mt-2">Mostrando as 5 últimas. Veja tudo em Resumo Mensal.</p>}
-            </div>
-          </div>
-        )}
-
-        {/* --- DASHBOARD VIEW --- */}
-        {activeTab === AppState.DASHBOARD && currentUser.role !== 'free' && (
-          <div className="space-y-8">
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Resumo Mensal</h2>
-                  <p className="text-slate-500">Selecione o mês desejado para filtrar os dados consolidados.</p>
-                </div>
-                {currentUser.role === 'guest' && (
-                   <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold border border-amber-100">
-                     Modo Visualização (Convidado)
-                   </span>
-                )}
+        {/* Impersonation Banner */}
+        {store.originalAdminUser && (
+          <div className="bg-indigo-600 text-white px-4 py-2 text-sm flex justify-between items-center shadow-md relative z-[60]">
+             <div className="flex items-center gap-2">
+               <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-semibold">Modo Admin</span>
+               <span>Você está acessando a conta de <strong>{store.currentUser.name}</strong></span>
              </div>
-             
-             <Dashboard 
-               transactions={transactions} 
-               onUpdateTransaction={handleUpdateTransaction}
-               isReadOnly={isReadOnly}
-             />
+             <button 
+               onClick={store.stopImpersonation}
+               className="flex items-center gap-1 bg-white text-indigo-600 px-3 py-1 rounded-md text-xs font-bold hover:bg-indigo-50 transition-colors"
+             >
+               <ArrowLeft className="w-3 h-3" />
+               Voltar ao Painel
+             </button>
           </div>
         )}
 
-        {/* --- FORECAST VIEW --- */}
-        {activeTab === AppState.FORECAST && currentUser.role !== 'free' && (
-           <Forecast currentTransactions={transactions} />
-        )}
+        <Navbar 
+          activeTab={store.activeTab} 
+          onNavigate={store.navigate} 
+          currentUser={store.currentUser}
+          onLogout={store.logout}
+        />
 
-        {/* --- ADMIN VIEW --- */}
-        {activeTab === AppState.ADMIN && (currentUser.role === 'admin' || originalAdminUser?.role === 'admin') && (
-            <AdminPanel 
-              users={TEST_USERS} 
-              currentAdmin={originalAdminUser || currentUser}
-              onImpersonate={handleAdminImpersonation}
-            />
-        )}
+        <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-in fade-in duration-700">
+          
+          {store.error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center text-red-800 shadow-sm">
+               <span className="mr-2">⚠️</span> {store.error}
+            </div>
+          )}
 
-        {/* --- SETTINGS VIEW (With Parameter Table) --- */}
-        {activeTab === AppState.SETTINGS && currentUser.role !== 'free' && (
-            <Settings 
-              currentUser={currentUser} 
-              rules={categoryRules}
-              onSaveRules={handleSaveRules}
-            />
-        )}
-      </main>
+          {/* --- UPLOAD VIEW --- */}
+          {store.activeTab === AppState.UPLOAD && (
+            <div className="space-y-10">
+              <div className="text-center max-w-2xl mx-auto pt-8">
+                <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl mb-4">
+                  Organize suas finanças com <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Inteligência Artificial</span>
+                </h1>
+                <p className="text-lg text-slate-500 leading-relaxed">
+                  Olá, <span className="font-semibold text-slate-900">{store.currentUser.name}</span>! Gerencie seus arquivos abaixo.
+                </p>
+              </div>
 
-      <footer className="border-t border-slate-200 mt-auto bg-white">
-        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center">
-          <p className="text-sm text-slate-400">
-            &copy; 2024 Simples Bolso AI. Todos os direitos reservados.
-          </p>
-          <div className="mt-2 text-xs text-slate-300 font-mono">
-            {originalAdminUser ? `Admin: ${originalAdminUser.name} | ` : ''} Usuário Logado: {currentUser.name} ({currentUser.role})
+              <FileUpload 
+                onFileSelect={handleFileSelect}
+                onLoadDemo={handleLoadDemo}
+                isLoading={store.isLoading} 
+                uploadedFiles={store.uploadedFiles}
+                onDeleteFile={store.deleteFile}
+                onDownloadCSV={handleDownloadCSV}
+                onDownloadOriginal={handleDownloadOriginal}
+                isReadOnly={isReadOnly}
+              />
+              
+              <div className="pt-4 opacity-75">
+                 <TransactionTable 
+                    transactions={store.transactions.slice(0, 5)} 
+                    onDownload={() => downloadCSV(store.transactions)} 
+                    onUpdateTransaction={store.updateTransaction}
+                    isReadOnly={isReadOnly}
+                 />
+                 {store.transactions.length > 5 && <p className="text-center text-xs text-slate-400 mt-2">Mostrando as 5 últimas. Veja tudo em Resumo Mensal.</p>}
+              </div>
+            </div>
+          )}
+
+          {/* --- DASHBOARD VIEW --- */}
+          {store.activeTab === AppState.DASHBOARD && store.currentUser.role !== 'free' && (
+            <div className="space-y-8">
+               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Resumo Mensal</h2>
+                    <p className="text-slate-500">Selecione o mês desejado para filtrar os dados consolidados.</p>
+                  </div>
+                  {store.currentUser.role === 'guest' && (
+                     <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-semibold border border-amber-100">
+                       Modo Visualização (Convidado)
+                     </span>
+                  )}
+               </div>
+               
+               <Dashboard 
+                 transactions={store.transactions} 
+                 onUpdateTransaction={store.updateTransaction}
+                 isReadOnly={isReadOnly}
+               />
+            </div>
+          )}
+
+          {/* --- FORECAST VIEW --- */}
+          {store.activeTab === AppState.FORECAST && store.currentUser.role !== 'free' && (
+             <Forecast currentTransactions={store.transactions} />
+          )}
+
+          {/* --- ADMIN VIEW --- */}
+          {store.activeTab === AppState.ADMIN && (store.currentUser.role === 'admin' || store.originalAdminUser?.role === 'admin') && (
+              <AdminPanel 
+                users={TEST_USERS} 
+                currentAdmin={store.originalAdminUser || store.currentUser}
+                onImpersonate={store.setImpersonation}
+              />
+          )}
+
+          {/* --- SETTINGS VIEW (With Parameter Table) --- */}
+          {store.activeTab === AppState.SETTINGS && store.currentUser.role !== 'free' && (
+              <Settings 
+                currentUser={store.currentUser} 
+                rules={store.categoryRules}
+                onSaveRules={store.updateRules}
+              />
+          )}
+        </main>
+
+        <footer className="border-t border-slate-200 mt-auto bg-white">
+          <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center">
+            <p className="text-sm text-slate-400">
+              &copy; 2024 Simples Bolso AI. Todos os direitos reservados.
+            </p>
+            <div className="mt-2 text-xs text-slate-300 font-mono">
+              {store.originalAdminUser ? `Admin: ${store.originalAdminUser.name} | ` : ''} Usuário Logado: {store.currentUser.name} ({store.currentUser.role})
+            </div>
           </div>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </ErrorBoundary>
   );
 }

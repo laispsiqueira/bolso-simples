@@ -4,6 +4,12 @@ import { Transaction } from "../types";
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// Basic sanitization to prevent XSS/HTML injection from AI response (Security Hardening)
+const sanitizeString = (str: string): string => {
+  if (!str) return "";
+  return str.replace(/[<>]/g, "").trim();
+};
+
 export const extractDataFromPDF = async (base64Pdf: string, fileId: string): Promise<Transaction[]> => {
   try {
     const prompt = `
@@ -65,15 +71,15 @@ export const extractDataFromPDF = async (base64Pdf: string, fileId: string): Pro
     }
 
     const rawData = JSON.parse(response.text);
-    const bankName = rawData.bankName || "Banco Desconhecido";
+    const bankName = sanitizeString(rawData.bankName) || "Banco Desconhecido";
     
-    // Add IDs and ensure consistency
+    // Add IDs and ensure consistency with sanitization
     return rawData.transactions.map((item: any, index: number) => ({
       id: `txn-${Date.now()}-${index}`,
       date: item.date,
-      description: item.description,
+      description: sanitizeString(item.description),
       amount: Math.abs(item.amount), // Normalize to absolute value
-      category: item.category || 'Outros',
+      category: sanitizeString(item.category) || 'Outros',
       type: item.type || 'debit',
       bank: bankName,
       fileId: fileId

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { UploadCloud, FileType, Trash2, CheckCircle2, FileDown, FileSpreadsheet } from 'lucide-react';
+import { UploadCloud, FileType, Trash2, FileDown, FileSpreadsheet } from 'lucide-react';
 import { Button } from './Button';
 import { UploadedFile } from '../types';
+import { PrivacyConsentModal } from './PrivacyConsentModal';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -25,6 +26,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   isReadOnly = false
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -36,20 +39,45 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     setIsDragging(false);
   };
 
+  const processFileSelection = (file: File) => {
+    if (file.type !== 'application/pdf') {
+       alert("Por favor, selecione um arquivo PDF válido.");
+       return;
+    }
+    setPendingFile(file);
+    setIsPrivacyModalOpen(true);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (isReadOnly) return;
+    
     const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].type === 'application/pdf') {
-      onFileSelect(files[0]);
-    } else {
-      alert("Por favor, solte um arquivo PDF válido.");
+    if (files.length > 0) {
+      processFileSelection(files[0]);
     }
+  };
+
+  const handleConfirmUpload = () => {
+    if (pendingFile) {
+      onFileSelect(pendingFile);
+    }
+    setPendingFile(null);
+    setIsPrivacyModalOpen(false);
   };
 
   return (
     <div className="space-y-8 max-w-2xl mx-auto">
+      <PrivacyConsentModal 
+        isOpen={isPrivacyModalOpen}
+        onClose={() => {
+          setIsPrivacyModalOpen(false);
+          setPendingFile(null);
+        }}
+        onConfirm={handleConfirmUpload}
+      />
+
       {/* Upload Zone */}
       <div 
         className={`
@@ -96,7 +124,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 accept="application/pdf"
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
-                    onFileSelect(e.target.files[0]);
+                    processFileSelection(e.target.files[0]);
                   }
                 }}
                 disabled={isLoading || isReadOnly}
