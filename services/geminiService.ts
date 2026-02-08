@@ -4,21 +4,23 @@ import { Transaction } from "../types";
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const extractDataFromPDF = async (base64Pdf: string): Promise<Transaction[]> => {
+export const extractDataFromPDF = async (base64Pdf: string, fileId: string): Promise<Transaction[]> => {
   try {
     const prompt = `
-      You are an expert financial data analyst. 
-      Analyze the attached bank statement or credit card invoice PDF.
+      Você é um especialista em análise de dados financeiros.
+      Analise o extrato bancário ou fatura de cartão de crédito em PDF anexado.
       
-      Extract all transactions into a structured JSON list.
+      Tarefas:
+      1. Identifique o nome do BANCO ou Instituição Financeira (ex: Nubank, Itaú, Bradesco, Santander, Inter, etc) no cabeçalho.
+      2. Extraia todas as transações para uma lista JSON estruturada.
       
-      Rules:
-      1. Normalize the date to YYYY-MM-DD format.
-      2. Clean the description (remove extra codes, weird spacing).
-      3. Ensure 'amount' is a number. If it is an expense, ensure it is positive number, but mark type as 'debit'. If it is a payment/income, mark type as 'credit'.
-      4. Auto-classify the category based on the description (e.g., 'Uber' -> 'Transport', 'Starbucks' -> 'Food').
-      5. Ignore page headers, footers, and balance summaries. Only extract individual line items.
-      6. Return a JSON array.
+      Regras de Extração:
+      1. Normalize a data para o formato YYYY-MM-DD.
+      2. Limpe a descrição (remova códigos extras, espaçamento estranho, "PARC 01/02").
+      3. Certifique-se de que 'amount' é um número.
+      4. Classifique automaticamente a categoria com base na descrição usando APENAS estas categorias: ['Alimentação', 'Transporte', 'Moradia', 'Lazer', 'Saúde', 'Educação', 'Compras', 'Serviços', 'Investimento', 'Renda', 'Outros'].
+      5. Se for uma despesa/saída, marque 'type' como 'debit'. Se for pagamento recebido/depósito, marque como 'credit'.
+      6. Ignore saldos iniciais, finais e cabeçalhos de página. Extraia apenas os itens de linha.
     `;
 
     const response = await ai.models.generateContent({
@@ -37,15 +39,21 @@ export const extractDataFromPDF = async (base64Pdf: string): Promise<Transaction
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              date: { type: Type.STRING },
-              description: { type: Type.STRING },
-              amount: { type: Type.NUMBER },
-              category: { type: Type.STRING },
-              type: { type: Type.STRING, enum: ['debit', 'credit'] }
+          type: Type.OBJECT,
+          properties: {
+            bankName: { type: Type.STRING, description: "Nome do banco identificado" },
+            transactions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  date: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  amount: { type: Type.NUMBER },
+                  category: { type: Type.STRING },
+                  type: { type: Type.STRING, enum: ['debit', 'credit'] }
+                }
+              }
             }
           }
         }
@@ -57,15 +65,18 @@ export const extractDataFromPDF = async (base64Pdf: string): Promise<Transaction
     }
 
     const rawData = JSON.parse(response.text);
+    const bankName = rawData.bankName || "Banco Desconhecido";
     
     // Add IDs and ensure consistency
-    return rawData.map((item: any, index: number) => ({
+    return rawData.transactions.map((item: any, index: number) => ({
       id: `txn-${Date.now()}-${index}`,
       date: item.date,
       description: item.description,
       amount: Math.abs(item.amount), // Normalize to absolute value
-      category: item.category || 'Uncategorized',
-      type: item.type || 'debit'
+      category: item.category || 'Outros',
+      type: item.type || 'debit',
+      bank: bankName,
+      fileId: fileId
     }));
 
   } catch (error) {

@@ -14,6 +14,15 @@ export const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+export const downloadBase64File = (base64: string, fileName: string, mimeType: string) => {
+  const link = document.createElement('a');
+  link.href = `data:${mimeType};base64,${base64}`;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 export const downloadCSV = (transactions: Transaction[]) => {
   const headers = ['Data', 'Descrição', 'Categoria', 'Valor', 'Tipo'];
   const csvContent = [

@@ -1,14 +1,21 @@
 import React from 'react';
-import { Transaction } from '../types';
+import { Transaction, CATEGORIES } from '../types';
 import { Download, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { Button } from './Button';
 
 interface TransactionTableProps {
   transactions: Transaction[];
   onDownload: () => void;
+  onUpdateTransaction: (id: string, updates: Partial<Transaction>) => void;
+  isReadOnly?: boolean;
 }
 
-export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions, onDownload }) => {
+export const TransactionTable: React.FC<TransactionTableProps> = ({ 
+  transactions, 
+  onDownload, 
+  onUpdateTransaction,
+  isReadOnly = false
+}) => {
   if (transactions.length === 0) return null;
 
   return (
@@ -27,6 +34,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
             <thead className="bg-slate-50/50">
               <tr>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Data</th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Banco</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Descrição</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Categoria</th>
                 <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Valor</th>
@@ -35,15 +43,25 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
               {transactions.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
+                <tr key={t.id} className="hover:bg-slate-50/80 transition-colors group">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
                     {new Date(t.date + 'T00:00:00').toLocaleDateString('pt-BR')}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">
+                    {t.bank || 'Desconhecido'}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{t.description}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                      {t.category}
-                    </span>
+                    <select
+                      disabled={isReadOnly}
+                      value={t.category}
+                      onChange={(e) => onUpdateTransaction(t.id, { category: e.target.value })}
+                      className="block w-full pl-2 pr-8 py-1 text-xs border-slate-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md bg-slate-50 disabled:bg-transparent disabled:appearance-none cursor-pointer"
+                    >
+                      {CATEGORIES.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-slate-900">
                     R$ {t.amount.toFixed(2)}
