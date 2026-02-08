@@ -1,0 +1,5 @@
+{
+  "name": "Simples Bolso",
+  "description": "Transform PDF bank statements into Google Sheets/Excel tables instantly using AI. Features recurring expense forecasting and financial dashboards.",
+  "requestFramePermissions": []
+}
