@@ -1,0 +1,13 @@
+{
+  "name": "Bolso Simples",
+  "description": "Aplicativo financeiro inteligente com extração por IA, gestão de regras e simulador de parcelamentos.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "Finance Management",
+    "AI Document Processing",
+    "Data Visualization"
+  ]
+}

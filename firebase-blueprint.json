@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and roles.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["FREE", "PAID", "ADMIN"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "A single financial entry (income or expense).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "bank": { "type": "string" },
+        "type": { "type": "string", "enum": ["INCOME", "EXPENSE"] },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "amount", "description", "bank", "type", "category"]
+    },
+    "CategoryRule": {
+      "title": "Categorization Rule",
+      "description": "Rules to automatically categorize transactions based on keywords.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "keyword": { "type": "string" },
+        "category": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "keyword", "category", "active"]
+    },
+    "Simulation": {
+      "title": "Purchase Simulation",
+      "description": "Planning for future purchases with installments.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "installments": { "type": "number" },
+        "priority": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "bank": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "totalAmount", "installments", "priority", "bank"]
+    },
+    "ProcessedFile": {
+      "title": "Processed File Record",
+      "description": "Prevents duplicate processing of the same file.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fileHash": { "type": "string" },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fileHash"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Global user settings and roles."
+    },
+    "transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "All financial transactions."
+    },
+    "category_rules/{ruleId}": {
+      "schema": "CategoryRule",
+      "description": "Rules for automatic categorization."
+    },
+    "simulations/{simulationId}": {
+      "schema": "Simulation",
+      "description": "Saved purchase simulations."
+    },
+    "processed_files/{fileId}": {
+      "schema": "ProcessedFile",
+      "description": "Tracking of processed statements."
+    }
+  }
+}

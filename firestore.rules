@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'laispsiqueira@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Entity Validations ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             data.keys().size() <= 4 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.role in ['FREE', 'PAID', 'ADMIN'];
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['userId', 'date', 'amount', 'description', 'bank', 'type', 'category']) &&
+             data.userId == request.auth.uid &&
+             data.amount is number &&
+             data.description is string && data.description.size() <= 500 &&
+             data.bank is string && data.bank.size() <= 100 &&
+             data.type in ['INCOME', 'EXPENSE'] &&
+             data.category is string && data.category.size() <= 100;
+    }
+
+    function isValidRule(data) {
+      return data.keys().hasAll(['userId', 'keyword', 'category', 'active']) &&
+             data.userId == request.auth.uid &&
+             data.keyword is string && data.keyword.size() <= 100 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.active is bool;
+    }
+
+    function isValidSimulation(data) {
+      return data.keys().hasAll(['userId', 'name', 'totalAmount', 'installments', 'priority', 'bank']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 200 &&
+             data.totalAmount is number &&
+             data.installments is number &&
+             data.priority in ['High', 'Medium', 'Low'] &&
+             data.bank is string && data.bank.size() <= 100;
+    }
+
+    function isValidProcessedFile(data) {
+      return data.keys().hasAll(['userId', 'fileHash']) &&
+             data.userId == request.auth.uid &&
+             data.fileHash is string && data.fileHash.size() <= 256;
+    }
+
+    // --- Collections ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                     (incoming().role == 'FREE' || (incoming().role == 'ADMIN' && incoming().email == 'laispsiqueira@gmail.com'));
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role) || isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && isValidId(transactionId) && isValidTransaction(incoming());
+      allow update: if isVerified() && isOwner(existing().userId) && isValidTransaction(incoming());
+      allow delete: if isVerified() && isOwner(existing().userId);
+    }
+
+    match /category_rules/{ruleId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && isValidId(ruleId) && isValidRule(incoming());
+      allow update: if isVerified() && isOwner(existing().userId) && isValidRule(incoming());
+      allow delete: if isVerified() && isOwner(existing().userId);
+    }
+
+    match /simulations/{simulationId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && isValidId(simulationId) && isValidSimulation(incoming());
+      allow update: if isVerified() && isOwner(existing().userId) && isValidSimulation(incoming());
+      allow delete: if isVerified() && isOwner(existing().userId);
+    }
+
+    match /processed_files/{fileId} {
+      allow get: if isSignedIn() && isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidId(fileId) && isValidProcessedFile(incoming());
+      allow delete: if isVerified() && isOwner(existing().userId);
+    }
+  }
+}
