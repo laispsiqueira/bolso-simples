@@ -15,15 +15,14 @@ service cloud.firestore {
     function existing() { return resource.data; }
     function isAdmin() { 
       return isSignedIn() && (
-        request.auth.token.email == 'laispsiqueira@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        request.auth.token.email == 'laispsiqueira@gmail.com'
       );
     }
 
     // --- Entity Validations ---
     function isValidUser(data) {
       return data.keys().hasAll(['email', 'role']) &&
-             data.keys().size() <= 4 &&
+             data.keys().size() <= 6 &&
              data.email is string && data.email.size() <= 200 &&
              data.role in ['FREE', 'PAID', 'ADMIN'];
     }
@@ -67,40 +66,53 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && 
-                     (incoming().role == 'FREE' || (incoming().role == 'ADMIN' && incoming().email == 'laispsiqueira@gmail.com'));
+      allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role) || isAdmin();
     }
 
     match /transactions/{transactionId} {
-      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isVerified() && isValidId(transactionId) && isValidTransaction(incoming());
-      allow update: if isVerified() && isOwner(existing().userId) && isValidTransaction(incoming());
-      allow delete: if isVerified() && isOwner(existing().userId);
+      allow update: if isVerified() && existing().userId == request.auth.uid && isValidTransaction(incoming());
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
     }
 
     match /category_rules/{ruleId} {
-      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isVerified() && isValidId(ruleId) && isValidRule(incoming());
-      allow update: if isVerified() && isOwner(existing().userId) && isValidRule(incoming());
-      allow delete: if isVerified() && isOwner(existing().userId);
+      allow update: if isVerified() && existing().userId == request.auth.uid && isValidRule(incoming());
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
     }
 
     match /simulations/{simulationId} {
-      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isVerified() && isValidId(simulationId) && isValidSimulation(incoming());
-      allow update: if isVerified() && isOwner(existing().userId) && isValidSimulation(incoming());
-      allow delete: if isVerified() && isOwner(existing().userId);
+      allow update: if isVerified() && existing().userId == request.auth.uid && isValidSimulation(incoming());
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
     }
 
     match /processed_files/{fileId} {
-      allow get: if isSignedIn() && isOwner(existing().userId);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isVerified() && isValidId(fileId) && isValidProcessedFile(incoming());
-      allow delete: if isVerified() && isOwner(existing().userId);
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
+    }
+
+    match /file_patterns/{id} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && (incoming().userId == request.auth.uid || isAdmin());
+      allow update: if isVerified() && (existing().userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /processing_history/{id} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && incoming().userId == request.auth.uid;
     }
   }
 }

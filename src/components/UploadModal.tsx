@@ -1,20 +1,21 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Upload, FileText, Loader2, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { extractTransactions } from '../lib/gemini';
+import { useSmartExtraction } from '../hooks/useSmartExtraction';
 
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (transactions: any[]) => void;
+  userId: string;
 }
 
-export default function UploadModal({ isOpen, onClose, onConfirm }: UploadModalProps) {
+export default function UploadModal({ isOpen, onClose, onConfirm, userId }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
   const [reviewData, setReviewData] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { extract, loading, stats } = useSmartExtraction(userId);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -25,26 +26,11 @@ export default function UploadModal({ isOpen, onClose, onConfirm }: UploadModalP
 
   const processFile = async () => {
     if (!file) return;
-    setLoading(true);
-    setError(null);
-
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target?.result as string;
-        try {
-          const transactions = await extractTransactions(base64, file.type);
-          setReviewData(transactions);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Erro ao processar arquivo.");
-        } finally {
-          setLoading(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      setError("Falha ao ler o arquivo localmente.");
-      setLoading(false);
+      const transactions = await extract(file);
+      setReviewData(transactions);
+    } catch (err: any) {
+      setError(err.message || "Erro ao processar arquivo.");
     }
   };
 

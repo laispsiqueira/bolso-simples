@@ -66,6 +66,31 @@
         "processedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "fileHash"]
+    },
+    "FilePattern": {
+      "title": "File Extraction Pattern",
+      "description": "Learned mapping for specific file types/banks.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "bankName": { "type": "string" },
+        "patternHash": { "type": "string" },
+        "accuracy": { "type": "number" },
+        "usageCount": { "type": "number" }
+      },
+      "required": ["userId", "bankName", "patternHash"]
+    },
+    "ProcessingHistory": {
+      "title": "AI Processing Stats",
+      "description": "Metrics for AI usage and efficiency.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "timeMs": { "type": "number" },
+        "success": { "type": "boolean" }
+      },
+      "required": ["userId", "type", "success"]
     }
   },
   "firestore": {
@@ -88,6 +113,14 @@
     "processed_files/{fileId}": {
       "schema": "ProcessedFile",
       "description": "Tracking of processed statements."
+    },
+    "file_patterns/{patternId}": {
+      "schema": "FilePattern",
+      "description": "Learned bank patterns."
+    },
+    "processing_history/{historyId}": {
+      "schema": "ProcessingHistory",
+      "description": "Efficiency logs."
     }
   }
 }

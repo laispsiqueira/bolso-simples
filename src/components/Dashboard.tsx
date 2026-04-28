@@ -6,12 +6,34 @@ import {
 } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface DashboardProps {
   transactions: any[];
+  userId?: string;
 }
 
-export default function Dashboard({ transactions }: DashboardProps) {
+export default function Dashboard({ transactions, userId }: DashboardProps) {
+  const [aiHistory, setAiHistory] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (!userId) return;
+    const fetchHistory = async () => {
+      const q = query(
+        collection(db, 'processing_history'), 
+        where('userId', '==', userId),
+        limit(5)
+      );
+      const snap = await getDocs(q);
+      const docs = snap.docs.map(d => d.data());
+      // Sort in JS instead of Firestore index
+      docs.sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt));
+      setAiHistory(docs);
+    };
+    fetchHistory();
+  }, [userId]);
+
   const stats = useMemo(() => {
     const totalBalance = transactions.reduce((acc, t) => acc + t.amount, 0);
     const income = transactions.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
@@ -122,6 +144,29 @@ export default function Dashboard({ transactions }: DashboardProps) {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* AI Intelligence Footer */}
+      <div className="bg-blue-600 rounded-3xl p-8 text-white shadow-xl shadow-blue-100 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div>
+          <h3 className="text-xl font-bold mb-2 flex items-center">
+            <TrendingUp className="w-6 h-6 mr-3" />
+            Performance da Inteligência
+          </h3>
+          <p className="opacity-80 text-sm max-w-md">
+            O Bolso Simples está aprendendo com seus extratos. Arquivos similares serão processados instantaneamente.
+          </p>
+        </div>
+        <div className="flex gap-4 overflow-x-auto w-full md:w-auto pb-4 md:pb-0">
+          {aiHistory.map((h, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl min-w-[160px] border border-white/20">
+              <p className="text-[10px] uppercase font-bold opacity-60 mb-1">{h.fileName || 'Arquivo'}</p>
+              <p className="text-lg font-black">{Math.round(h.timeMs)}ms</p>
+              <p className="text-[10px] opacity-80 mt-1">{h.type}</p>
+            </div>
+          ))}
+          {aiHistory.length === 0 && <p className="text-sm opacity-60">Padrões sendo analisados...</p>}
         </div>
       </div>
     </div>
