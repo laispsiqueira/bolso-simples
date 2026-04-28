@@ -112,13 +112,6 @@ export default function Simulator({ simulations, onSaveSimulation, onDeleteSimul
             </button>
           </form>
         </div>
-
-        <div className="bg-blue-600 text-white p-6 rounded-3xl shadow-xl shadow-blue-100">
-          <p className="text-sm font-medium opacity-80 mb-2 font-mono">Dica da IA</p>
-          <p className="text-lg font-bold leading-tight italic">
-            "Compras parceladas comprometem sua liquidez futura. Tente priorizar pagamentos à vista para descontos maiores."
-          </p>
-        </div>
       </div>
 
       {/* Simulation Results/History */}

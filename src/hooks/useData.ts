@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc, deleteDoc, doc, setDoc, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export function useTransactions(userId: string | undefined) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [rules, setRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [simulations, setSimulations] = useState<any[]>([]);
+  const [processedFiles, setProcessedFiles] = useState<any[]>([]);
 
   useEffect(() => {
     if (!userId) return;
@@ -23,13 +25,29 @@ export function useTransactions(userId: string | undefined) {
     const qR = query(collection(db, 'category_rules'), where('userId', '==', userId));
     const unsubR = onSnapshot(qR, (snap) => setRules(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => handleFirestoreError(e, OperationType.LIST, 'category_rules'));
 
-    return () => { unsubT(); unsubS(); unsubR(); };
+    const qF = query(collection(db, 'processed_files'), where('userId', '==', userId));
+    const unsubF = onSnapshot(qF, (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      items.sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      setProcessedFiles(items);
+    }, (e) => handleFirestoreError(e, OperationType.LIST, 'processed_files'));
+
+    return () => { unsubT(); unsubS(); unsubR(); unsubF(); };
   }, [userId]);
 
-  const [simulations, setSimulations] = useState<any[]>([]);
-
-  const addTransactions = async (newItems: any[]) => {
+  const addTransactions = async (newItems: any[], filesInfo?: { name: string, bank?: string }[]) => {
     if (!userId) return;
+
+    let fileId: string | null = null;
+    if (filesInfo && filesInfo.length > 0) {
+      const fileRef = await addDoc(collection(db, 'processed_files'), {
+        userId,
+        fileName: filesInfo.map(f => f.name).join(', '),
+        createdAt: new Date().toISOString()
+      });
+      fileId = fileRef.id;
+    }
+
     for (const item of newItems) {
       let category = item.category;
       const rule = rules.find(r => item.description.toUpperCase().includes(r.keyword.toUpperCase()));
@@ -39,9 +57,17 @@ export function useTransactions(userId: string | undefined) {
         ...item,
         userId,
         category,
+        fileId,
         createdAt: new Date().toISOString()
       });
     }
+  };
+
+  const removeFile = async (id: string) => {
+    const q = query(collection(db, 'transactions'), where('fileId', '==', id));
+    const snap = await getDocs(q);
+    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'transactions', d.id))));
+    await deleteDoc(doc(db, 'processed_files', id));
   };
 
   const addRule = async (rule: any) => {
@@ -59,6 +85,7 @@ export function useTransactions(userId: string | undefined) {
 
   const addSimulation = (sim: any) => addDoc(collection(db, 'simulations'), { ...sim, userId });
   const removeSimulation = (id: string) => deleteDoc(doc(db, 'simulations', id));
+  const removeTransaction = (id: string) => deleteDoc(doc(db, 'transactions', id));
 
-  return { transactions, rules, simulations, addTransactions, addRule, removeRule, addSimulation, removeSimulation };
+  return { transactions, rules, simulations, processedFiles, addTransactions, addRule, removeRule, addSimulation, removeSimulation, removeTransaction, removeFile };
 }

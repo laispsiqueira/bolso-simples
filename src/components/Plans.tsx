@@ -13,29 +13,22 @@ export default function Plans() {
     },
     {
       name: 'PRO',
-      price: 'R$ 19,90',
+      price: 'R$ 29,90',
       description: 'Para quem busca precisão e liberdade.',
       icon: <Shield className="w-6 h-6 text-purple-500" />,
       features: ['Extração Ilimitada', 'Backup em Nuvem', 'Regras Ilimitadas', 'Exportação CSV/Excel', 'Categorização Turbo'],
       highlight: true
-    },
-    {
-      name: 'ADMIN',
-      price: 'EXCLUSIVO',
-      description: 'Controle total da plataforma.',
-      icon: <Crown className="w-6 h-6 text-yellow-500" />,
-      features: ['Gestão de Usuários', 'Modo Impersonate', 'Edição Global de Categorias', 'Insights Avançados'],
     }
   ];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12">
+    <div className="max-w-4xl mx-auto space-y-12">
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-black tracking-tight text-gray-900">Escolha seu plano</h2>
         <p className="text-gray-500 max-w-xl mx-auto">Potencialize sua gestão financeira com recursos avançados de inteligência artificial.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {tiers.map((tier) => (
           <div 
             key={tier.name}

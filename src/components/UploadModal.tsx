@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, FileText, Loader2, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSmartExtraction } from '../hooks/useSmartExtraction';
@@ -6,31 +6,39 @@ import { useSmartExtraction } from '../hooks/useSmartExtraction';
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (transactions: any[]) => void;
+  onConfirm: (transactions: any[], filesInfo: { name: string, bank?: string }[]) => void;
   userId: string;
 }
 
 export default function UploadModal({ isOpen, onClose, onConfirm, userId }: UploadModalProps) {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [reviewData, setReviewData] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { extract, loading, stats } = useSmartExtraction(userId);
+  const { extract, loading } = useSmartExtraction(userId);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFiles([]);
+      setReviewData(null);
+      setError(null);
+    }
+  }, [isOpen]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      setFiles(Array.from(e.target.files));
       setError(null);
     }
   };
 
-  const processFile = async () => {
-    if (!file) return;
+  const processFiles = async () => {
+    if (files.length === 0) return;
     try {
-      const transactions = await extract(file);
+      const transactions = await extract(files);
       setReviewData(transactions);
     } catch (err: any) {
-      setError(err.message || "Erro ao processar arquivo.");
+      setError(err.message || "Erro ao processar arquivos.");
     }
   };
 
@@ -47,7 +55,7 @@ export default function UploadModal({ isOpen, onClose, onConfirm, userId }: Uplo
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-xl font-bold flex items-center">
             <Upload className="w-5 h-5 mr-3 text-blue-600" />
-            Importar Extrato
+            Importar Extratos
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-400" />
@@ -60,7 +68,7 @@ export default function UploadModal({ isOpen, onClose, onConfirm, userId }: Uplo
               <div 
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                  file ? 'bg-blue-50 border-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-400 hover:bg-blue-50/50'
+                  files.length > 0 ? 'bg-blue-50 border-blue-400' : 'bg-gray-50 border-gray-200 hover:border-blue-400 hover:bg-blue-50/50'
                 }`}
               >
                 <input 
@@ -68,20 +76,25 @@ export default function UploadModal({ isOpen, onClose, onConfirm, userId }: Uplo
                   ref={fileInputRef} 
                   className="hidden" 
                   onChange={handleFileChange}
+                  multiple
                   accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx" 
                 />
-                <div className={`p-4 rounded-full mb-4 ${file ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                  {file ? <FileText className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
+                <div className={`p-4 rounded-full mb-4 ${files.length > 0 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                  {files.length > 0 ? <FileText className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
                 </div>
-                {file ? (
-                  <div className="text-center">
-                    <p className="font-bold text-blue-600">{file.name}</p>
-                    <p className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                {files.length > 0 ? (
+                  <div className="text-center space-y-1">
+                    <p className="font-bold text-blue-600">
+                      {files.length === 1 ? files[0].name : `${files.length} arquivos selecionados`}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {(files.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(2)} MB total
+                    </p>
                   </div>
                 ) : (
                   <div className="text-center">
                     <p className="font-bold text-gray-600">Arraste ou clique para selecionar</p>
-                    <p className="text-xs text-gray-400 mt-1">PDFs, Imagens, CSV ou Planilhas</p>
+                    <p className="text-xs text-gray-400 mt-1">PDFs, Imagens, CSV ou Planilhas (Múltiplos permitidos)</p>
                   </div>
                 )}
               </div>
@@ -94,14 +107,14 @@ export default function UploadModal({ isOpen, onClose, onConfirm, userId }: Uplo
               )}
 
               <button
-                disabled={!file || loading}
-                onClick={processFile}
+                disabled={files.length === 0 || loading}
+                onClick={processFiles}
                 className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-100"
               >
                 {loading ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                    A IA está processando o arquivo...
+                    Processando {files.length} arquivo(s)...
                   </>
                 ) : (
                   'Processar Arquivos'
@@ -153,7 +166,7 @@ export default function UploadModal({ isOpen, onClose, onConfirm, userId }: Uplo
                   Voltar
                 </button>
                 <button
-                  onClick={() => onConfirm(reviewData)}
+                  onClick={() => onConfirm(reviewData, files.map(f => ({ name: f.name })))}
                   className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
                 >
                   Confirmar e Salvar

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { useAuth } from './hooks/useAuth';
@@ -21,10 +21,14 @@ import { GoogleAuthProvider as FbGoogleProvider, signInWithPopup } from 'firebas
 
 export default function App() {
   const { user, loading, logout } = useAuth();
-  const { transactions, rules, simulations, addTransactions, addRule, removeRule, addSimulation, removeSimulation } = useTransactions(user?.id);
+  const { 
+    transactions, rules, simulations, processedFiles,
+    addTransactions, addRule, removeRule, addSimulation, removeSimulation, 
+    removeTransaction, removeFile 
+  } = useTransactions(user?.id);
   const [allUsers, setAllUsers] = useState<any[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (user?.role === 'ADMIN') {
       const q = collection(db, 'users');
       return onSnapshot(q, (snap) => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -82,7 +86,16 @@ export default function App() {
         user={user}
         onLogout={logout}
       >
-        {activeTab === 'dash' && <Dashboard transactions={transactions} userId={user.id} />}
+        {activeTab === 'dash' && (
+          <Dashboard 
+            transactions={transactions} 
+            simulations={simulations} 
+            processedFiles={processedFiles}
+            userId={user.id} 
+            onDeleteTransaction={removeTransaction} 
+            onDeleteFile={removeFile}
+          />
+        )}
         {activeTab === 'regras' && <Rules rules={rules} onAddRule={addRule} onDeleteRule={removeRule} />}
         {activeTab === 'calc' && <Simulator simulations={simulations} onSaveSimulation={addSimulation} onDeleteSimulation={removeSimulation} />}
         {activeTab === 'plans' && <Plans />}
@@ -92,7 +105,10 @@ export default function App() {
       <UploadModal 
         isOpen={isImportOpen} 
         onClose={() => setIsImportOpen(false)} 
-        onConfirm={addTransactions}
+        onConfirm={async (data, filesInfo) => {
+          await addTransactions(data, filesInfo);
+          setIsImportOpen(false);
+        }}
         userId={user.id}
       />
     </>
