@@ -18,7 +18,15 @@ O **Bolso Simples** é um gerenciador financeiro inteligente projetado para simp
 - **Animações**: Motion (Framer Motion)
 - **Gráficos**: Recharts
 - **IA**: Google Gemini Pro & Flash
-- **Banco de Dados & Auth**: Firebase (Firestore & Authentication)
+- **Banco de Dados & Auth**: PostgreSQL via Supabase
+
+## 🏗️ Arquitetura
+
+O projeto utiliza **Clean Architecture**, organizado em camadas:
+- **Domain**: Entidades de negócio e interfaces de repositório.
+- **Application**: Casos de uso e lógica de serviços.
+- **Interface Adapters**: Hooks do React e lógica de interface.
+- **Infrastructure**: Implementações de persistência com Supabase.
 
 ## 📦 Como Instalar e Rodar
 
@@ -29,7 +37,8 @@ O **Bolso Simples** é um gerenciador financeiro inteligente projetado para simp
    ```
 3. Configure as variáveis de ambiente no arquivo `.env`:
    - `GEMINI_API_KEY`: Sua chave da API do Google AI Studio.
-   - Configurações do Firebase (através do arquivo `firebase-applet-config.json`).
+   - `VITE_SUPABASE_URL`: URL do seu projeto Supabase.
+   - `VITE_SUPABASE_ANON_KEY`: Chave anônima do seu projeto Supabase.
 4. Inicie o servidor de desenvolvimento:
    ```bash
    npm run dev

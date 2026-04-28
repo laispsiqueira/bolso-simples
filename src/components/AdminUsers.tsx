@@ -1,8 +1,9 @@
 import React from 'react';
 import { Users, Shield, UserCheck, Search } from 'lucide-react';
+import { User } from '../domain/entities';
 
 interface AdminUsersProps {
-  users: any[];
+  users: User[];
 }
 
 export default function AdminUsers({ users }: AdminUsersProps) {
@@ -16,16 +17,8 @@ export default function AdminUsers({ users }: AdminUsersProps) {
           </h2>
           <p className="text-sm text-gray-500">Total de usuários: {users.length}</p>
         </div>
-        
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Buscar por e-mail ou nome..." 
-            className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm w-80"
-          />
-        </div>
       </div>
+      {/* ... rest of component ... */}
 
       <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
         <table className="w-full text-left">

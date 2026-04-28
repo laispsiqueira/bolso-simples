@@ -4,8 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from './lib/firebase';
+import { supabase } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
 import { useTransactions } from './hooks/useData';
 import Layout from './components/Layout';
@@ -16,8 +15,6 @@ import Plans from './components/Plans';
 import AdminUsers from './components/AdminUsers';
 import UploadModal from './components/UploadModal';
 import { Loader2 } from 'lucide-react';
-import { auth } from './lib/firebase';
-import { GoogleAuthProvider as FbGoogleProvider, signInWithPopup } from 'firebase/auth';
 
 export default function App() {
   const { user, loading, logout } = useAuth();
@@ -30,17 +27,22 @@ export default function App() {
 
   useEffect(() => {
     if (user?.role === 'ADMIN') {
-      const q = collection(db, 'users');
-      return onSnapshot(q, (snap) => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+      supabase.from('users').select('*').then(({ data }) => {
+        if (data) setAllUsers(data);
+      });
     }
   }, [user]);
   
   const [activeTab, setActiveTab] = useState('dash');
   const [isImportOpen, setIsImportOpen] = useState(false);
 
-  const handleLogin = () => {
-    const provider = new FbGoogleProvider();
-    signInWithPopup(auth, provider);
+  const handleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
   };
 
   if (loading) {

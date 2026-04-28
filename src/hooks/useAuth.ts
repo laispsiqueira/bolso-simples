@@ -1,46 +1,78 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        const userRef = doc(db, 'users', fbUser.uid);
-        try {
-          const userSnap = await getDoc(userRef);
-          if (userSnap.exists()) {
-            setUser({ id: fbUser.uid, ...userSnap.data() });
-          } else {
-            let role = 'FREE';
-            if (fbUser.email === 'laispsiqueira@gmail.com') role = 'ADMIN';
-            else if (fbUser.email === 'laispsiqueira.3@gmail.com') role = 'PAID';
-
-            const newUser = {
-              email: fbUser.email,
-              name: fbUser.displayName,
-              role: role,
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(userRef, newUser);
-            setUser({ id: fbUser.uid, ...newUser });
-          }
-        } catch (error) {
-          console.error("Auth sync error:", error);
-          // Safety fallback for dev/demo if Firestore is restricted
-          setUser({ id: fbUser.uid, email: fbUser.email, role: 'FREE', name: fbUser.displayName });
-        }
-      } else {
-        setUser(null);
-      }
+    // Check active sessions and sets the user
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      syncUser(session?.user ?? null);
       setLoading(false);
     });
-    return unsub;
+
+    // Listen for changes on auth state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      syncUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  return { user, loading, logout: () => signOut(auth) };
+  const syncUser = async (sbUser: any) => {
+    if (!sbUser) {
+      setUser(null);
+      return;
+    }
+
+    // Try to get user profile from our users table
+    const { data: profile, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', sbUser.id)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // User doesn't exist in our table, create it
+      let role = 'FREE';
+      if (sbUser.email === 'laispsiqueira@gmail.com') role = 'ADMIN';
+      else if (sbUser.email === 'laispsiqueira.3@gmail.com') role = 'PAID';
+
+      const newUser = {
+        id: sbUser.id,
+        email: sbUser.email,
+        name: sbUser.user_metadata?.full_name || sbUser.email,
+        role: role,
+        created_at: new Date().toISOString()
+      };
+
+      await supabase.from('users').insert(newUser);
+      setUser({
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        createdAt: newUser.created_at
+      });
+    } else if (profile) {
+      setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        role: profile.role,
+        createdAt: profile.created_at
+      });
+    } else {
+      // Fallback
+      setUser({ id: sbUser.id, email: sbUser.email, role: 'FREE' });
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  return { user, loading, logout };
 }

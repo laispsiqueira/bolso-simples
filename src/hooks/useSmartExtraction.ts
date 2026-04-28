@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
-import { collection, addDoc, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { extractTransactions } from '../lib/gemini';
 
 export function useSmartExtraction(userId: string) {
@@ -25,18 +24,23 @@ export function useSmartExtraction(userId: string) {
 
         const base64 = await base64Promise;
         
-        // AI Extraction (Secure Backend)
+        // AI Extraction
         const data = await extractTransactions(base64, file.type, file.name, bankName);
         allTransactions = [...allTransactions, ...data];
         
-        // Log processing history for each file
-        await addDoc(collection(db, 'processing_history'), {
-          userId,
-          type: 'AI_FULL',
-          timeMs: (performance.now() - startTime) / files.length, // approximation per file
-          success: true,
-          fileName: file.name,
-          createdAt: new Date().toISOString()
+        // Log to audit_logs
+        await supabase.from('audit_logs').insert({
+          id: crypto.randomUUID(),
+          actor_user_id: userId,
+          action: 'FILE_PROCESSING',
+          resource_type: 'FILE',
+          metadata: {
+            fileName: file.name,
+            type: 'AI_FULL',
+            timeMs: (performance.now() - startTime) / files.length,
+            success: true
+          },
+          created_at: new Date().toISOString()
         });
       }
       
