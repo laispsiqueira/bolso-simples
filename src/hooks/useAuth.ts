@@ -43,7 +43,7 @@ export function useAuth() {
       const newUser = {
         id: sbUser.id,
         email: sbUser.email,
-        name: sbUser.user_metadata?.full_name || sbUser.email,
+        name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email,
         role: role,
         created_at: new Date().toISOString()
       };
@@ -70,9 +70,38 @@ export function useAuth() {
     }
   };
 
+  const loginWithGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+  };
+
+  const signIn = async (email: string, pass: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+  };
+
+  const signUp = async (email: string, pass: string, name: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: pass,
+      options: {
+        data: {
+          name: name,
+          full_name: name
+        }
+      }
+    });
+    if (error) throw error;
+    if (data.user) await syncUser(data.user);
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
 
-  return { user, loading, logout };
+  return { user, loading, logout, signIn, signUp, loginWithGoogle };
 }

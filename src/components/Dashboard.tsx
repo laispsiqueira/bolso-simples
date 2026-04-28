@@ -100,46 +100,24 @@ export default function Dashboard({ transactions, simulations, processedFiles, u
   return (
     <div className="space-y-6 pb-12">
       {/* Header with selector and Reload */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-            <Calendar className="w-6 h-6" />
+      <div className="bg-white p-6 lg:p-8 rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden group">
+        <div className="flex items-start justify-between mb-6 lg:mb-8">
+          <div className="flex items-center gap-4 lg:gap-6">
+            <div className="p-4 lg:p-5 bg-blue-50 text-blue-600 rounded-[24px] shadow-sm shadow-blue-50/50">
+              <Calendar className="w-6 h-6 lg:w-7 lg:h-7" />
+            </div>
+            <div>
+              <p className="text-[10px] lg:text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Visão do Período</p>
+              <h1 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight leading-none capitalize">
+                {format(new Date(selectedYear, selectedMonth), 'MMMM yyyy', { locale: ptBR })}
+              </h1>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-0.5">Visão do Período</h3>
-            <p className="text-xl font-black text-gray-900 leading-none">
-              {monthsList[selectedMonth]} {selectedYear}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <div className="flex items-center bg-gray-50 rounded-2xl p-1 w-full lg:w-auto">
-            <select 
-              value={selectedMonth} 
-              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="flex-1 lg:w-36 bg-transparent border-none rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-gray-600 focus:ring-0 outline-none cursor-pointer"
-            >
-              {monthsList.map((m, i) => (
-                <option key={i} value={i}>{m}</option>
-              ))}
-            </select>
-            <div className="w-px h-4 bg-gray-200 mx-1 hidden lg:block" />
-            <select 
-              value={selectedYear} 
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="lg:w-28 bg-transparent border-none rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-gray-600 focus:ring-0 outline-none cursor-pointer"
-            >
-              {yearsList.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex gap-2 ml-auto lg:ml-0">
+          
+          <div className="flex gap-2">
             <button 
               onClick={handleReload}
-              className="p-3 bg-white border border-gray-100 hover:bg-gray-50 text-gray-600 rounded-2xl transition-all shadow-sm active:scale-95"
+              className="p-3 lg:p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-white hover:text-blue-600 hover:shadow-xl hover:shadow-blue-100 transition-all border border-transparent hover:border-blue-100 group-hover:scale-105 active:scale-95"
               title="Sincronizar Dados"
             >
               <RefreshCw className="w-5 h-5" />
@@ -147,18 +125,39 @@ export default function Dashboard({ transactions, simulations, processedFiles, u
             {onClearData && userRole === 'ADMIN' && (
               <button 
                 onClick={async () => {
-                  if (window.confirm('Deseja realmente apagar TODOS os seus dados de teste (transações, regras, arquivos e simulações)? Esta ação não pode ser desfeita.')) {
+                  if (window.confirm('Deseja realmente apagar TODOS os seus dados de teste? Esta ação não pode ser desfeita.')) {
                     await onClearData();
-                    alert('Dados limpos com sucesso!');
                   }
                 }}
-                className="p-3 bg-red-50 border border-red-100 hover:bg-red-100 text-red-600 rounded-2xl transition-all shadow-sm active:scale-95"
+                className="p-3 lg:p-4 bg-rose-50 text-rose-300 hover:text-rose-600 rounded-2xl transition-all border border-transparent hover:border-rose-100 active:scale-95"
                 title="Limpar todos os meus dados"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
             )}
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50/80 rounded-2xl p-2 border border-slate-100">
+          <select 
+            value={selectedMonth} 
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            className="flex-1 min-w-[120px] bg-transparent border-none rounded-xl px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 focus:ring-0 outline-none cursor-pointer"
+          >
+            {monthsList.map((m, i) => (
+              <option key={i} value={i}>{m}</option>
+            ))}
+          </select>
+          <div className="w-px h-6 bg-slate-200 hidden sm:block" />
+          <select 
+            value={selectedYear} 
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="flex-1 min-w-[100px] bg-transparent border-none rounded-xl px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 focus:ring-0 outline-none cursor-pointer"
+          >
+            {yearsList.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -238,8 +237,18 @@ export default function Dashboard({ transactions, simulations, processedFiles, u
                 formatter={(val: number) => [`R$ ${val.toLocaleString('pt-BR')}`, '']}
                 labelStyle={{ fontWeight: 900, color: '#0f172a', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
               />
-              <Bar dataKey="income" fill="#10b981" radius={[8, 8, 0, 0]} name="Receitas" barSize={36} />
-              <Bar dataKey="expense" fill="#fb7185" radius={[8, 8, 0, 0]} name="Despesas" barSize={36} />
+              <Bar dataKey="income" fill="#3b82f6" radius={[10, 10, 0, 0]} name="Receitas" barSize={34}>
+                {chartData.map((entry, index) => {
+                  const isCurrentMonth = entry.name.toLowerCase().startsWith(format(new Date(), 'MMM', { locale: ptBR }).toLowerCase().replace('.', ''));
+                  return <Cell key={`cell-income-${index}`} fill="#3b82f6" fillOpacity={isCurrentMonth ? 1 : 0.4} />;
+                })}
+              </Bar>
+              <Bar dataKey="expense" fill="#f87171" radius={[10, 10, 0, 0]} name="Despesas" barSize={34}>
+                {chartData.map((entry, index) => {
+                  const isCurrentMonth = entry.name.toLowerCase().startsWith(format(new Date(), 'MMM', { locale: ptBR }).toLowerCase().replace('.', ''));
+                  return <Cell key={`cell-expense-${index}`} fill="#fb7185" fillOpacity={isCurrentMonth ? 1 : 0.4} />;
+                })}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -282,18 +291,18 @@ export default function Dashboard({ transactions, simulations, processedFiles, u
                   stats.filteredTransactions.map((t) => (
                     <tr key={t.id} className="group transition-all hover:translate-x-1">
                       <td className="px-6 py-4 bg-gray-50/50 rounded-l-2xl group-hover:bg-blue-50/30 transition-colors">
-                        <p className="text-[11px] font-black text-gray-900 border-l-4 border-gray-200 pl-3 group-hover:border-blue-400 transition-all">{format(parseISO(t.date), 'dd/MM/yy')}</p>
+                        <p className="text-xs lg:text-sm font-black text-slate-900 border-l-4 border-slate-200 pl-3 group-hover:border-blue-400 transition-all">{format(parseISO(t.date), 'dd/MM/yy')}</p>
                       </td>
                       <td className="px-6 py-4 bg-gray-50/50 group-hover:bg-blue-50/30 transition-colors">
-                        <p className="text-xs font-bold text-gray-800 leading-tight">{t.description}</p>
+                        <p className="text-sm font-bold text-slate-800 leading-tight">{t.description}</p>
                       </td>
                       <td className="px-6 py-4 bg-gray-50/50 group-hover:bg-blue-50/30 transition-colors">
-                        <span className="px-3 py-1.5 bg-white border border-gray-100 text-gray-500 rounded-lg text-[9px] font-black uppercase tracking-widest inline-block group-hover:border-blue-100 group-hover:text-blue-500 transition-all">
+                        <span className="px-3 py-1.5 bg-white border border-slate-100 text-slate-500 rounded-lg text-[10px] lg:text-[11px] font-black uppercase tracking-widest inline-block group-hover:border-blue-100 group-hover:text-blue-500 transition-all">
                           {t.category}
                         </span>
                       </td>
                       <td className="px-6 py-4 bg-gray-50/50 group-hover:bg-blue-50/30 transition-colors">
-                        <p className={`text-sm font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                        <p className={`text-base font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
                           {t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </td>
@@ -387,9 +396,9 @@ export default function Dashboard({ transactions, simulations, processedFiles, u
 function StatCard({ label, value, icon, color, secondary }: { label: string, value: number, icon: React.ReactNode, color: string, secondary?: string }) {
   const colorMap: any = {
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
-    green: 'bg-green-50 text-green-600 border-green-100',
-    red: 'bg-red-50 text-red-600 border-red-100',
-    purple: 'bg-purple-50 text-purple-600 border-purple-100',
+    green: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+    red: 'bg-rose-50 text-rose-600 border-rose-100',
+    purple: 'bg-indigo-50 text-indigo-600 border-indigo-100',
   };
 
   const isPositive = value >= 0;
@@ -397,22 +406,22 @@ function StatCard({ label, value, icon, color, secondary }: { label: string, val
   const formattedValue = absValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <div className="bg-white p-5 lg:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center transition-all hover:shadow-md hover:translate-y-[-2px] w-full min-w-0">
-      <div className={`p-3 lg:p-4 rounded-2xl mr-3 lg:mr-4 border flex-shrink-0 ${colorMap[color]}`}>
+    <div className="bg-white p-6 lg:p-7 rounded-[32px] border border-slate-100 shadow-sm flex items-center transition-all hover:shadow-xl hover:shadow-slate-100 hover:translate-y-[-4px] w-full min-w-0">
+      <div className={`p-4 lg:p-5 rounded-[22px] mr-4 lg:mr-5 border flex-shrink-0 transition-transform group-hover:scale-110 ${colorMap[color]}`}>
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-widest mb-0.5 lg:mb-1 truncate">{label}</p>
+        <p className="text-[10px] lg:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 lg:mb-2 italic">{label}</p>
         <div className="flex items-center gap-1 min-w-0">
-          {!isPositive && <span className="text-sm font-black text-red-500">-</span>}
-          <p className={`font-black text-gray-900 leading-none truncate ${
-            formattedValue.length > 15 ? 'text-sm lg:text-base' : 
-            formattedValue.length > 12 ? 'text-base lg:text-lg' : 'text-lg lg:text-xl'
-          }`}>
+          {!isPositive && <span className="text-2xl font-black text-rose-500">-</span>}
+          <p className={`font-black text-slate-900 leading-none truncate ${
+            formattedValue.length > 15 ? 'text-xl lg:text-2xl' : 
+            formattedValue.length > 12 ? 'text-2xl lg:text-3xl' : 'text-3xl lg:text-4xl'
+          } tracking-tighter`}>
             {formattedValue}
           </p>
         </div>
-        {secondary && <p className="text-[9px] lg:text-[10px] font-bold text-gray-400 mt-1 truncate">{secondary}</p>}
+        {secondary && <p className="text-[10px] lg:text-[11px] font-bold text-slate-400 mt-2 truncate uppercase tracking-tighter">{secondary}</p>}
       </div>
     </div>
   );
