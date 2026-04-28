@@ -14,7 +14,9 @@ export default function Simulator({ simulations, onSaveSimulation, onDeleteSimul
     totalAmount: '',
     installments: '1',
     priority: 'Medium',
-    bank: ''
+    bank: '',
+    startMonth: new Date().getMonth().toString(),
+    startYear: new Date().getFullYear().toString()
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -25,6 +27,8 @@ export default function Simulator({ simulations, onSaveSimulation, onDeleteSimul
       ...formData,
       totalAmount: parseFloat(formData.totalAmount),
       installments: parseInt(formData.installments),
+      startMonth: parseInt(formData.startMonth),
+      startYear: parseInt(formData.startYear),
       createdAt: new Date().toISOString()
     });
     
@@ -33,9 +37,19 @@ export default function Simulator({ simulations, onSaveSimulation, onDeleteSimul
       totalAmount: '',
       installments: '1',
       priority: 'Medium',
-      bank: ''
+      bank: '',
+      startMonth: new Date().getMonth().toString(),
+      startYear: new Date().getFullYear().toString()
     });
   };
+
+  const monthsList = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -77,8 +91,35 @@ export default function Simulator({ simulations, onSaveSimulation, onDeleteSimul
                   value={formData.installments}
                   onChange={(e) => setFormData({...formData, installments: e.target.value})}
                 >
-                  {[1, 2, 3, 4, 5, 6, 10, 12, 18, 24].map(n => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24].map(n => (
                     <option key={n} value={n}>{n}x</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Mês de Início</label>
+                <select 
+                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-100 transition-all bg-white"
+                  value={formData.startMonth}
+                  onChange={(e) => setFormData({...formData, startMonth: e.target.value})}
+                >
+                  {monthsList.map((m, i) => (
+                    <option key={i} value={i}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Ano de Início</label>
+                <select 
+                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-100 transition-all bg-white"
+                  value={formData.startYear}
+                  onChange={(e) => setFormData({...formData, startYear: e.target.value})}
+                >
+                  {years.map(y => (
+                    <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
               </div>
@@ -152,7 +193,14 @@ export default function Simulator({ simulations, onSaveSimulation, onDeleteSimul
               </div>
 
               <div className="flex justify-between items-center">
-                <p className="text-[10px] text-gray-400 font-mono italic">Adicionado em {new Date(sim.createdAt).toLocaleDateString()}</p>
+                <div>
+                  <p className="text-[10px] text-gray-400 font-mono italic">Adicionado em {new Date(sim.createdAt).toLocaleDateString()}</p>
+                  {sim.startMonth !== undefined && (
+                    <p className="text-[10px] text-blue-500 font-bold uppercase mt-1">
+                      Início: {monthsList[sim.startMonth]} {sim.startYear}
+                    </p>
+                  )}
+                </div>
                 <button 
                   onClick={() => onDeleteSimulation(sim.id)}
                   className="text-xs text-red-500 font-bold hover:underline"

@@ -39,10 +39,14 @@ export function useTransactions(userId: string | undefined) {
     if (!userId) return;
 
     let fileId: string | null = null;
+    const fileName = filesInfo?.map(f => f.name).join(', ') || 'Manual';
+
     if (filesInfo && filesInfo.length > 0) {
       const fileRef = await addDoc(collection(db, 'processed_files'), {
         userId,
-        fileName: filesInfo.map(f => f.name).join(', '),
+        fileName,
+        transactionCount: newItems.length,
+        totalValue: newItems.reduce((acc, curr) => acc + curr.amount, 0),
         createdAt: new Date().toISOString()
       });
       fileId = fileRef.id;
@@ -58,6 +62,7 @@ export function useTransactions(userId: string | undefined) {
         userId,
         category,
         fileId,
+        sourceFile: fileName,
         createdAt: new Date().toISOString()
       });
     }
@@ -68,6 +73,16 @@ export function useTransactions(userId: string | undefined) {
     const snap = await getDocs(q);
     await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'transactions', d.id))));
     await deleteDoc(doc(db, 'processed_files', id));
+  };
+
+  const clearAllUserData = async () => {
+    if (!userId) return;
+    const collections = ['transactions', 'category_rules', 'processed_files', 'simulations'];
+    for (const colName of collections) {
+      const q = query(collection(db, colName), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      await Promise.all(snap.docs.map(d => deleteDoc(doc(db, colName, d.id))));
+    }
   };
 
   const addRule = async (rule: any) => {
@@ -87,5 +102,5 @@ export function useTransactions(userId: string | undefined) {
   const removeSimulation = (id: string) => deleteDoc(doc(db, 'simulations', id));
   const removeTransaction = (id: string) => deleteDoc(doc(db, 'transactions', id));
 
-  return { transactions, rules, simulations, processedFiles, addTransactions, addRule, removeRule, addSimulation, removeSimulation, removeTransaction, removeFile };
+  return { transactions, rules, simulations, processedFiles, addTransactions, addRule, removeRule, addSimulation, removeSimulation, removeTransaction, removeFile, clearAllUserData };
 }

@@ -8,9 +8,10 @@ interface UploadModalProps {
   onClose: () => void;
   onConfirm: (transactions: any[], filesInfo: { name: string, bank?: string }[]) => void;
   userId: string;
+  processedFiles: any[];
 }
 
-export default function UploadModal({ isOpen, onClose, onConfirm, userId }: UploadModalProps) {
+export default function UploadModal({ isOpen, onClose, onConfirm, userId, processedFiles }: UploadModalProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [reviewData, setReviewData] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,18 @@ export default function UploadModal({ isOpen, onClose, onConfirm, userId }: Uplo
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFiles(Array.from(e.target.files));
+      const selectedFiles = Array.from(e.target.files);
+      const duplicate = selectedFiles.find((sf: File) => 
+        processedFiles.some((pf: any) => pf.fileName.toLowerCase().includes(sf.name.toLowerCase()))
+      );
+
+      if (duplicate) {
+        setError(`O arquivo ${(duplicate as File).name} já foi processado.`);
+        setFiles([]);
+        return;
+      }
+
+      setFiles(selectedFiles);
       setError(null);
     }
   };

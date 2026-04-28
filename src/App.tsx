@@ -24,7 +24,7 @@ export default function App() {
   const { 
     transactions, rules, simulations, processedFiles,
     addTransactions, addRule, removeRule, addSimulation, removeSimulation, 
-    removeTransaction, removeFile 
+    removeTransaction, removeFile, clearAllUserData 
   } = useTransactions(user?.id);
   const [allUsers, setAllUsers] = useState<any[]>([]);
 
@@ -94,6 +94,8 @@ export default function App() {
             userId={user.id} 
             onDeleteTransaction={removeTransaction} 
             onDeleteFile={removeFile}
+            onClearData={clearAllUserData}
+            userRole={user.role}
           />
         )}
         {activeTab === 'regras' && <Rules rules={rules} onAddRule={addRule} onDeleteRule={removeRule} />}
@@ -110,6 +112,7 @@ export default function App() {
           setIsImportOpen(false);
         }}
         userId={user.id}
+        processedFiles={processedFiles}
       />
     </>
   );
